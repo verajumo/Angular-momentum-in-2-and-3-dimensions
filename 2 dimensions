@@ -84,8 +84,6 @@ plt.show()
 
 
 
-
-
 m = 1          # winding number (vortex charge)
 xi = 1.0       # healing length
 r_max = 6.0
