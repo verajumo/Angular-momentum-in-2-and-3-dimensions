@@ -1,0 +1,123 @@
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Parámetros
+N = 400
+L = 5
+
+# Grilla
+x = np.linspace(-L, L, N)
+y = np.linspace(-L, L, N)
+X, Y = np.meshgrid(x, y)
+
+# Ángulo polar en [0, 2pi)
+theta = np.mod(np.arctan2(Y, X), 2*np.pi)
+
+# Normalización para escala de grises
+theta_norm = theta / (2*np.pi)
+
+# Gráfica
+plt.figure(figsize=(6, 6))
+plt.imshow(
+    theta_norm,
+    extent=[-L, L, -L, L],
+    origin='lower',
+    cmap='gray'
+)
+
+plt.xlabel('x')
+plt.ylabel('y')
+plt.title(r'Normalized angular phase $\phi$')
+
+plt.colorbar(label=r'$\phi / 2\pi$')
+
+plt.tight_layout()
+plt.show()
+
+
+#######################
+
+
+m = 1       # vortex charge
+mu = 2      # chemical potential
+Omega = 0.1 # trap frequency
+
+# Grid
+x = np.linspace(-20, 20, 400)
+y = np.linspace(-20, 20, 400)
+X, Y = np.meshgrid(x, y)
+r = np.sqrt(X**2 + Y**2)
+theta = np.arctan2(Y, X)
+
+# Thomas-Fermi profile for harmonic trap
+V = 0.5 * Omega**2 * r**2
+psi_TF = np.sqrt(np.maximum(mu - V, 0))
+
+# Vortex core function
+U = r**m / np.sqrt(r**(2*m) + 1)
+
+# Full wavefunction
+psi = psi_TF * U * np.exp(1j * m * theta)
+
+# Density
+density = np.abs(psi)**2
+
+# Plot
+fig = plt.figure(figsize=(8,7))
+ax = fig.add_subplot(111, projection='3d')
+
+surf = ax.plot_surface(X, Y, density, cmap='viridis')
+ax.set_xlabel('x')
+ax.set_ylabel('y')
+ax.set_zlabel('n(x,y)')
+ax.set_title('Density of a BEC with a vortex')
+
+# Colorbar
+fig.colorbar(surf, ax=ax, shrink=0.6, label='Density')
+
+plt.tight_layout()
+plt.show()
+
+
+#############################
+
+
+
+
+
+m = 1          # winding number (vortex charge)
+xi = 1.0       # healing length
+r_max = 6.0
+N = 400
+
+
+r = np.linspace(0, r_max, N)
+
+# Model vortex profile:
+# U(0)=0, U(r)->1, U(r)~r^|m| near r=0
+U = r**abs(m) / np.sqrt(r**(2*abs(m)) + xi**(2*abs(m)))
+
+
+
+x = np.linspace(-r_max, r_max, N)
+y = np.linspace(-r_max, r_max, N)
+X, Y = np.meshgrid(x, y)
+
+R = np.sqrt(X**2 + Y**2)
+Phi = np.arctan2(Y, X)
+
+U2D = R**abs(m) / np.sqrt(R**(2*abs(m)) + xi**(2*abs(m)))
+
+psi = U2D * np.exp(1j * m * Phi)
+
+phase = np.angle(psi)
+
+plt.figure()
+plt.pcolormesh(X, Y, phase, shading="auto")
+plt.gca().set_aspect("equal")
+plt.colorbar(label=r"$\arg\psi(x,y)$")
+plt.xlabel(r"$x$")
+plt.ylabel(r"$y$")
+plt.title("Phase of the BEC vortex orbital")
+plt.show()
