@@ -1,0 +1,118 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from skimage import measure
+import scipy.special as sp
+
+###############
+
+a0 = 1.0  # Bohr radius
+universal_limit = 25 # Universal limit for axes, so all orbitals are compared on the same scale
+
+def hydrogen_wavefunction(n, l, m, r, theta, phi):
+    # Radial Part R(r)
+    rho = 2 * r / (n * a0)
+    prefactor = np.sqrt((2 / (n * a0))**3 * sp.factorial(n - l - 1) / (2 * n * sp.factorial(n + l)))
+    L = sp.assoc_laguerre(rho, n - l - 1, 2 * l + 1)
+    R_nl = prefactor * np.exp(-rho / 2) * (rho**l) * L
+
+    # Angular Part Y(theta,phi)
+    Y_lm = sp.sph_harm(m, l, phi, theta)
+
+    return R_nl * Y_lm
+
+def get_density_grid(n, l, m, size, fixed_radius, view_mode):     # Generates the 3D probability density grid
+    limit = fixed_radius
+    x = np.linspace(-limit, limit, size)
+    y = np.linspace(-limit, limit, size)
+    z = np.linspace(-limit, limit, size)
+    X, Y, Z = np.meshgrid(x, y, z)
+
+    r = np.sqrt(X**2 + Y**2 + Z**2)
+    theta = np.arccos(Z / (r + 1e-10))
+    phi = np.arctan2(Y, X)
+
+    psi = hydrogen_wavefunction(n, l, m, r, theta, phi)
+
+    # Transformation for "chemical view" (real standing waves)
+    if view_mode == 'chemical':
+        if l == 1 and m != 0: psi = np.real(psi * np.sqrt(2) * (-1)**m) if m==1 else np.imag(psi * np.sqrt(2) * (-1)**m)
+        elif l == 2 and m != 0: psi = np.real(psi) if m==2 else psi # Simplified for dx2-y2
+        elif l == 3 and m != 0: psi = np.real(psi) # Simplified for general f
+
+    return np.abs(psi)**2, (x, y, z)
+
+# AUXILIARY PLOTTING FUNCTION
+def draw_orbital_on_axis(ax, n, l, m, title, view_mode, axis_lim=universal_limit):       # Draws a specific orbital on a given matplotlib axis
+    # Generate data (denser grid for high n)
+    grid_size = 100 if n >= 3 else 70
+    vol_data, (x, y, z) = get_density_grid(n, l, m, size=grid_size, fixed_radius=axis_lim, view_mode=view_mode)
+    
+    # Marching cubes
+    max_val = vol_data.max()
+    # Adjusted iso level: lower for n=1 so it doesn't disappear at this scale
+    level_factor = 0.03 if n == 1 else 0.08 
+    
+    try:
+        verts, faces, _, _ = measure.marching_cubes(vol_data, level=max_val * level_factor)
+    except (ValueError, RuntimeError):
+         print(f"Error generating surface for {title}. (Probably very low density)")
+         # Draw empty axes to maintain structure
+         ax.set_xlim(-axis_lim, axis_lim); ax.set_ylim(-axis_lim, axis_lim); ax.set_zlim(-axis_lim, axis_lim)
+         return
+
+    # Scale to physical space
+    scale = (x[-1] - x[0]) / (len(x) - 1)
+    offset = x[0]
+    verts = verts * scale + offset
+
+    # Draw surface
+    ax.plot_trisurf(verts[:, 0], verts[:, 1], faces, verts[:, 2],
+                    cmap='viridis', edgecolor='k', linewidth=0.001, alpha=0.9, antialiased=True)
+
+
+    ax.set_title(title, fontsize=11)
+    ax.set_xlabel('x ($a_0$)', fontsize=9); ax.set_ylabel('y ($a_0$)', fontsize=9); ax.set_zlabel('z ($a_0$)', fontsize=9)
+    # Universal fixed limits
+    ax.set_xlim(-axis_lim, axis_lim)
+    ax.set_ylim(-axis_lim, axis_lim)
+    ax.set_zlim(-axis_lim, axis_lim)
+    ax.view_init(elev=32, azim=45)
+    ax.dist = 11 # Zoom out the camera a bit
+    
+    
+    ###############
+    
+    
+    
+    # Figure 1: s-shell
+fig1 = plt.figure(figsize=(20, 5))
+ax1 = fig1.add_subplot(111, projection='3d')
+draw_orbital_on_axis(ax1, n=1, l=0, m=0, title='Chemical and vortex view', view_mode='vortex')
+fig1.suptitle("s-shell ($n=1, \ell=0, m=0$)", fontsize=14, y=0.98)
+plt.tight_layout()
+plt.show()
+
+# Figure 2: p-shell
+fig2, axes2 = plt.subplots(1, 2, figsize=(10, 5), subplot_kw={'projection': '3d'})
+draw_orbital_on_axis(axes2[0], n=2, l=1, m=1, title='Chemical view', view_mode='chemical')
+draw_orbital_on_axis(axes2[1], n=2, l=1, m=1, title='Vortex view', view_mode='vortex')
+fig2.suptitle("Comparison for $p$-shell ($n=2, \ell=1, m=1$)", fontsize=14, y=0.98)
+plt.tight_layout()
+plt.show()
+
+# Figure 3: d-shell
+fig3, axes3 = plt.subplots(1, 2, figsize=(10, 5), subplot_kw={'projection': '3d'})
+draw_orbital_on_axis(axes3[0], n=3, l=2, m=2, title='Chemical view', view_mode='chemical')
+draw_orbital_on_axis(axes3[1], n=3, l=2, m=2, title='Vortex view', view_mode='vortex')
+fig3.suptitle("Comparison for $d$-shell ($n=3, \ell=2, m=2$)", fontsize=14, y=0.98)
+plt.tight_layout()
+plt.show()
+
+# Figure 4: f-shell
+fig4, axes4 = plt.subplots(1, 2, figsize=(10, 5), subplot_kw={'projection': '3d'})
+draw_orbital_on_axis(axes4[0], n=4, l=3, m=2, title='Chemical view', view_mode='chemical')
+draw_orbital_on_axis(axes4[1], n=4, l=3, m=2, title='Vortex view', view_mode='vortex')
+fig4.suptitle("Comparison for $f$-shell ($n=4, \ell=3, m=2$)", fontsize=14, y=0.98)
+plt.tight_layout()
+plt.show()
